@@ -2,6 +2,31 @@
 
 A cross-platform (Windows/Linux) GUI tool to view Kubernetes pod/container logs using `kubectl` and Tkinter.
 
+---
+
+## Quick Start (Recommended)
+
+1. **Clone the repository:**
+2. **Install dependencies:**
+   ```sh
+   pip install -r requirements.txt
+   ```
+   - On Linux, you may also need: `sudo apt install python3-tk`
+3. **Build the executable:**
+   ```sh
+   ./build_executable.sh
+   ```
+   - Enter a version number when prompted.
+   - The script will create a generic command `kubectleNav` in the `dist/` folder and automatically add it to your PATH (if not already present).
+   - Your shell will reload automatically, so you can use the command right away.
+4. **Run the app from any terminal:**
+   ```sh
+   kubectleNav
+   ```
+   - The GUI will open. Select the namespace, pod, and container to view logs.
+
+---
+
 ## Features
 - Select namespace, pod, and container interactively
 - View and follow logs in real time
