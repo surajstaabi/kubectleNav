@@ -145,8 +145,11 @@ class LogViewerApp:
             while True:
                 line = self.log_queue.get_nowait()
                 self.log_text.configure(state='normal')
+                # Check if user is at the bottom before inserting
+                last_visible = self.log_text.yview()[1]
                 self.log_text.insert(tk.END, line)
-                self.log_text.see(tk.END)
+                if last_visible >= 0.999:  # Only auto-scroll if at bottom
+                    self.log_text.see(tk.END)
                 self.log_text.configure(state='disabled')
         except queue.Empty:
             pass
