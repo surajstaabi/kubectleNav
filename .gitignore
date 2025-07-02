@@ -23,3 +23,6 @@ Thumbs.db
 # Ignore requirements.txt and main.py (keep these)
 !requirements.txt
 !main.py 
+
+kubectleNav.desktop
+Kubernetes_logo_without_workmark.svg.png
