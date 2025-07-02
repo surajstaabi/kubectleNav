@@ -1,3 +1,4 @@
+# Made by mochiron-desu
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 import subprocess
@@ -42,21 +43,33 @@ class LogViewerApp:
         self.container_combo = ttk.Combobox(root, state='readonly')
         self.container_combo.grid(row=0, column=5, sticky='ew')
 
-        self.start_btn = ttk.Button(root, text='Start Logs', command=self.start_logs)
-        self.start_btn.grid(row=0, column=6, padx=5)
+        self.tail_label = ttk.Label(root, text='Show last N lines:')
+        self.tail_label.grid(row=0, column=6, sticky='w')
+        self.tail_var = tk.StringVar(value='1000')
+        self.tail_entry = ttk.Entry(root, textvariable=self.tail_var, width=6)
+        self.tail_entry.grid(row=0, column=7, sticky='ew')
+
+        self.live_var = tk.BooleanVar(value=True)
+        self.live_check = ttk.Checkbutton(root, text='Live (follow new logs)', variable=self.live_var)
+        self.live_check.grid(row=0, column=8, sticky='w')
+
+        self.show_btn = ttk.Button(root, text='Show Logs', command=self.show_logs)
+        self.show_btn.grid(row=0, column=9, padx=5)
         self.stop_btn = ttk.Button(root, text='Stop Logs', command=self.stop_logs, state='disabled')
-        self.stop_btn.grid(row=0, column=7, padx=5)
+        self.stop_btn.grid(row=0, column=10, padx=5)
 
         self.clear_btn = ttk.Button(root, text='Clear Logs', command=self.clear_logs)
-        self.clear_btn.grid(row=0, column=8, padx=5)
+        self.clear_btn.grid(row=0, column=11, padx=5)
 
         self.log_text = scrolledtext.ScrolledText(root, wrap='word', height=30, width=100, state='disabled')
-        self.log_text.grid(row=1, column=0, columnspan=9, sticky='nsew', pady=5)
+        self.log_text.grid(row=1, column=0, columnspan=12, sticky='nsew', pady=5)
 
         self.status_var = tk.StringVar()
         self.status_var.set('Ready')
         self.status_bar = ttk.Label(root, textvariable=self.status_var, relief='sunken', anchor='w')
-        self.status_bar.grid(row=2, column=0, columnspan=9, sticky='ew')
+        self.status_bar.grid(row=2, column=0, columnspan=11, sticky='ew')
+        self.signature_label = ttk.Label(root, text='Made by mochiron-desu', relief='sunken', anchor='e', font=('TkDefaultFont', 8, 'italic'))
+        self.signature_label.grid(row=2, column=11, sticky='ew')
 
         root.grid_columnconfigure(1, weight=1)
         root.grid_columnconfigure(3, weight=1)
@@ -67,7 +80,7 @@ class LogViewerApp:
         self.update_log_text()
 
     def set_loading(self, loading=True, message='Loading...'):
-        controls = [self.ns_combo, self.pod_combo, self.container_combo, self.start_btn, self.stop_btn, self.clear_btn]
+        controls = [self.ns_combo, self.pod_combo, self.container_combo, self.show_btn, self.stop_btn, self.clear_btn]
         state = 'disabled' if loading else 'readonly'
         for ctrl in controls:
             if isinstance(ctrl, ttk.Combobox):
@@ -138,32 +151,37 @@ class LogViewerApp:
             self.container_combo.set('')
             self.set_loading(False, 'No containers found.')
 
-    def start_logs(self):
+    def show_logs(self):
         pod = self.pod_combo.get()
         container = self.container_combo.get()
+        tail = self.tail_var.get()
+        live = self.live_var.get()
         if not pod:
             messagebox.showerror('Error', 'Please select a pod.')
+            return
+        try:
+            tail_n = int(tail)
+            if tail_n < 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror('Error', 'Please enter a valid positive integer for N.')
             return
         self.stop_event.clear()
         self.log_text.configure(state='normal')
         self.log_text.delete('1.0', tk.END)
         self.log_text.configure(state='disabled')
-        self.start_btn['state'] = 'disabled'
+        self.show_btn['state'] = 'disabled'
         self.stop_btn['state'] = 'normal'
-        self.status_var.set('Streaming logs...')
-        self.log_thread = threading.Thread(target=self.stream_logs, args=(pod, container), daemon=True)
+        self.status_var.set('Loading logs...')
+        self.log_thread = threading.Thread(target=self.stream_logs, args=(pod, container, tail_n, live), daemon=True)
         self.log_thread.start()
 
-    def stop_logs(self):
-        self.stop_event.set()
-        self.start_btn['state'] = 'normal'
-        self.stop_btn['state'] = 'disabled'
-        self.status_var.set('Log streaming stopped.')
-
-    def stream_logs(self, pod, container):
-        cmd = ['kubectl', 'logs', pod, '-n', self.namespace, '-f']
+    def stream_logs(self, pod, container, tail_n, live):
+        cmd = ['kubectl', 'logs', pod, '-n', self.namespace, f'--tail={tail_n}']
         if container:
             cmd += ['-c', container]
+        if live:
+            cmd += ['-f']
         try:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             if process.stdout is not None:
@@ -178,6 +196,14 @@ class LogViewerApp:
                 self.log_queue.put('Error: Failed to capture process stdout.\n')
         except Exception as e:
             self.log_queue.put(f'Error: {e}\n')
+        self.show_btn['state'] = 'normal'
+        self.stop_btn['state'] = 'disabled'
+
+    def stop_logs(self):
+        self.stop_event.set()
+        self.show_btn['state'] = 'normal'
+        self.stop_btn['state'] = 'disabled'
+        self.status_var.set('Log streaming stopped.')
 
     def update_log_text(self):
         try:
@@ -204,7 +230,16 @@ class LogViewerApp:
         self.log_text.configure(state='disabled')
         self.status_var.set('Logs cleared.')
 
+    def on_close(self):
+        # Set stop event to stop log streaming
+        self.stop_event.set()
+        # Wait for log thread to finish if it's running
+        if self.log_thread and self.log_thread.is_alive():
+            self.log_thread.join(timeout=2)
+        self.root.destroy()
+
 if __name__ == '__main__':
     root = tk.Tk()
     app = LogViewerApp(root)
+    root.protocol('WM_DELETE_WINDOW', app.on_close)
     root.mainloop()
