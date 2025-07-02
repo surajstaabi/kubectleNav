@@ -42,9 +42,9 @@ sudo apt install python3 python3-tk
 - Download and install [Python 3.x](https://www.python.org/downloads/). Ensure you check "Add Python to PATH" during installation.
 - Tkinter is included by default with Python on Windows. No extra steps needed.
 
-#### (Optional) Using pip (all platforms):
+#### Install Python dependencies (all platforms):
 ```sh
-pip install tk
+pip install -r requirements.txt
 ```
 
 ---
@@ -66,9 +66,9 @@ python main.py
 
 You can build a standalone executable using PyInstaller (Linux only, script provided):
 
-1. Install PyInstaller:
+1. Ensure all dependencies are installed:
    ```sh
-   pip install pyinstaller
+   pip install -r requirements.txt
    ```
 2. Run the build script:
    ```sh
